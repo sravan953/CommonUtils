@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import numpy as np
 from skimage.transform import resize as skimage_resize
 
@@ -21,7 +19,7 @@ def mask_subject(vol: np.ndarray, return_mask: bool = False):
     vol_masked = np.zeros_like(vol)  # Filled array of 1e3
     threshold = 0.1 * (
             np.percentile(vol, 98, axis=(0, 1)) - np.percentile(vol, 2, axis=(0, 1))
-    ) + np.percentile(vol, 15, axis=(0, 1))
+    ) + np.percentile(vol, 2, axis=(0, 1))
     mask = vol > threshold
     vol_masked[mask] = vol[mask]
 
@@ -68,31 +66,16 @@ def normalize_per_slice(vol: np.ndarray):
     return vol_normalized
 
 
-def pad_vol(vol: np.ndarray, target_size: Tuple[int, int, int], value: int = 0) -> np.ndarray:
-    pads = []
-    for i, t in enumerate(target_size):
-        if vol.shape[i] != t:
-            diff = abs(vol.shape[i] - t)
-            p = (diff // 2, diff // 2) if diff % 2 == 0 else (diff // 2, diff // 2 + 1)
-            pads.append(p)
-        else:
-            pads.append((0, 0))
-
-    vol_padded = np.pad(vol, pads, mode='constant', constant_values=value)
-
-    return vol_padded
-
-
-def resize(arr: np.ndarray, size: int) -> np.ndarray:
-    if arr.ndim == 3:
-        arr_resized = []
-        for i in range(arr.shape[-1]):
-            _slice = arr[..., i]
-            arr_resized.append(skimage_resize(_slice, (size, size)))
-        arr_resized = np.stack(arr_resized, axis=-1)
-    else:
-        arr_resized = skimage_resize(arr, (size, size))
-    return arr_resized
+def resize_vol(vol: np.ndarray, size: int) -> np.ndarray:
+    if vol.shape[:2] != (size, size):
+        vol_resized = []
+        for i in range(vol.shape[-1]):
+            _slice = vol[..., i]
+            # vol_resized.append(cv2.resize(_slice, (size, size)))
+            vol_resized.append(skimage_resize(_slice, (size, size)))
+        vol_resized = np.stack(vol_resized, axis=-1)
+        return vol_resized
+    return vol
 
 
 def standardize_volume(vol: np.ndarray):

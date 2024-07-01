@@ -35,14 +35,12 @@ def fill_subject(vol: np.ndarray, fill_value: float = 1.0) -> np.ndarray:
     return vol_filled
 
 
-def extract_noise(vol_noisy: np.ndarray) -> np.ndarray:
+def extract_noise_for_AMRI_IP(vol_noisy: np.ndarray) -> np.ndarray:
+    if vol_noisy.ndim != 3:
+        vol_noisy = np.expand_dims(vol_noisy, axis=-1)
+
     # Resulting vol has subject filled with 1e3 values
     vol_filled_1e3 = fill_subject(vol_noisy, fill_value=1e3)
-
-    # # Debug - visualize filled subject
-    # import sass
-    #
-    # sass.scroll(vol_filled_1e3)
 
     noise = []
     for i in range(vol_filled_1e3.shape[-1]):  # Iterate over slices
@@ -62,34 +60,31 @@ def extract_noise(vol_noisy: np.ndarray) -> np.ndarray:
             noise_bottom = s[last_row:]
             noise.extend(noise_bottom.flatten())
 
+    # Debug - visualize noise crop
+    # if rows_crop_till > 0 or rows_crop_from > 0 and rows_crop_from < vol_filled_1e3.shape[0]:
+    #     print('Debug - visualize noise crop')
+    #     from matplotlib import pyplot as plt
+    #     plt.imshow(s, cmap='gray')
+    #     if rows_crop_till > 0:
+    #         plt.axhline(rows_crop_till)
+    #         print(f"rows_crop_till: {rows_crop_till}")
+    #     if rows_crop_from > 0 and rows_crop_from < vol_filled_1e3.shape[0]:
+    #         plt.axhline(rows_crop_from)
+    #         print(f"rows_crop_from: {rows_crop_from}")
+    #     plt.show()
+
     # Remove zero values
     nonzero = np.nonzero(noise)
     noise = np.take(noise, nonzero).squeeze()
 
-    if len(noise) == 0:
-        """
-        No noise was extracted from this volume, because incompatible first_row and last_row values were encountered
-        in every slice. 
-        Workaround: For AMRI-IP, the minimum expected input size is 256. Therefore, arbitrarily slice first and last 32 
-        rows in top and bottom slices. Choose top and bottom slices because we expect to avoid as much anatomy as 
-        possible.
-        """
-        first_row = 32
-        last_row = -32
-        noise_first_slice = vol_filled_1e3[:first_row, ..., 0]  # First slice
-        noise_last_slice = vol_filled_1e3[last_row:, ..., -1]  # Last slice
-        noise = np.stack((noise_first_slice, noise_last_slice))
-        # Remove 1e3 values
-        noise = noise.flatten()
-        noise = noise[noise != 1e3]
-
-    # Debug - visualize noise block
-    # import sass
+    # # Debug - visualize noise block
+    # from matplotlib import pyplot as plt
     # print('Debug - visualize noise block')
-    # sass.scroll(noise_patches, scroll_dim=0)
-
-    # # Debug - noise statistics
-    # print(f"Mean: {np.mean(noise):.3g}, Std: {np.std(noise):.3g}, Median: {np.median(noise):.3g}")
+    # true_size = np.sqrt(len(noise))
+    # new_size = int(np.ceil(true_size))
+    # noise_padded = np.pad(noise, (new_size ** 2 - len(noise)) // 2)
+    # plt.imshow(noise_padded.reshape((new_size, new_size)))
+    # plt.show()
 
     return noise
 

@@ -1,16 +1,19 @@
-import numpy as np
-
-
 def __get_DCM_filename(filename):
-    try:
-        return int(filename.stem)
-    except:
-        return filename
+    return int(filename.stem)
 
 
 def __get_MRDC_num(filename):
     n = str(filename).split('.')[-1]
     return int(n)
+
+
+def advanced_sort(files):
+    try:
+        sorted_files = sorted(files, key=lambda f: int(f.stem.split(".")[8].split("-")[-2]))
+    except:
+        sorted_files = sorted(files, key=lambda f: int(f.stem.split(".")[-4]))
+
+    return sorted_files
 
 
 def sort_DCM_filenames(files: list) -> list:
@@ -19,13 +22,4 @@ def sort_DCM_filenames(files: list) -> list:
     if is_MRDC:
         return sorted(files, key=__get_MRDC_num)
     else:
-        return sorted(files, key=__get_DCM_filename)
-
-
-def sort_DCM_filenames_special(files: list) -> list:
-    # Sort Yasmine Hurd's data
-    files_sorted = sorted(files, key=lambda filename: int(filename.stem.split('-')[-2]))
-    if all(np.array(files) == np.array(files_sorted)):
-        files_sorted = sorted(files, key=lambda filename: int(filename.stem.split('.')[-4]))
-
-    return files_sorted
+        return advanced_sort(files)

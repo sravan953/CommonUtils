@@ -1,4 +1,3 @@
-import warnings
 from pathlib import Path
 from typing import Union, List, Tuple
 
@@ -8,7 +7,7 @@ import pydicom as pyd
 
 from common_utils import data_utils
 from common_utils import preprocessor
-from common_utils.sort_DCM import sort_DCM_filenames, sort_DCM_filenames_special
+from common_utils.sort_DCM import sort_DCM_filenames
 
 
 def glob_dicom(path_dicom: Path) -> list:
@@ -41,10 +40,7 @@ def load_dicom_folder(
 
     dicom_files = glob_dicom(path_dicom_folder)
     # *.MRDC.* DICOM FILES ARE NEVER IN ALPHABETICAL ORDER!!!
-    dicom_files_sorted = sort_DCM_filenames(dicom_files)
-    if all(np.array(dicom_files) == np.array(dicom_files_sorted)):  # Sorting did not work
-        dicom_files_sorted = sort_DCM_filenames_special(dicom_files)
-    dicom_files = dicom_files_sorted
+    dicom_files = sort_DCM_filenames(dicom_files)
 
     vol = []
     dicoms = []
@@ -67,33 +63,48 @@ def load_nifti(path_nifti: Path, nifti_dataset: str) -> np.ndarray:
     vol = nii.get_data().squeeze()
 
     # Dataset-contrast specific preprocessing
-    if nifti_dataset in ["IXI-T1", "IXI_3T-T1", "IXI_15T-T1", "IXI-T2"]:
-        vol = np.rot90(vol, 1)
+    if nifti_dataset == "HCP-T2":
+        vol = np.moveaxis(vol, 2, 1)
     elif nifti_dataset == "HCP-T1":
         vol = np.rot90(vol, -1)
         vol = np.fliplr(vol)
-    elif nifti_dataset == "MSSEG-T2FLAIR":
+    elif nifti_dataset in ["IXI-T1", "IXI_3T-T1", "IXI_15T-T1"]:
         vol = np.rot90(vol, 1)
-        vol = preprocessor.resize(vol, 256)
+    elif nifti_dataset == "HCP-T1-BET":
+        vol = np.rot90(vol, -1, axes=(0, 1))
+        vol = np.fliplr(vol)
+    elif nifti_dataset == "IXI-T1-BET":
+        vol = np.rot90(vol, 1, axes=(0, 1))
+    elif nifti_dataset == "HCP-T1-FLIRT":
+        vol = np.moveaxis(vol, (0, 1, 2), (2, 1, 0))
+        vol = np.fliplr(vol)
+        vol = np.flipud(vol)
+        vol = np.pad(vol, ((37, 37), (19, 19), (0, 0)))
+    elif nifti_dataset == "IXI-T1-FLIRT":
+        vol = np.moveaxis(vol, (0, 1, 2), (2, 1, 0))
+        vol = np.fliplr(vol)
+        vol = np.flipud(vol)
+        vol = np.pad(vol, ((37, 37), (19, 19), (0, 0)))
+    elif nifti_dataset == "HCP-T1-FLIRT-BET":
+        vol = np.moveaxis(vol, 0, 2)
+        vol = np.rot90(vol, axes=(0, 1))
+        vol = np.fliplr(vol)
+        vol = np.pad(vol, ((37, 37), (19, 19), (0, 0)))
+    elif nifti_dataset == "IXI-T1-FLIRT-BET":
+        vol = np.moveaxis(vol, 0, 2)
+        vol = np.rot90(vol, axes=(0, 1))
+        vol = np.fliplr(vol)
+        vol = np.pad(vol, ((37, 37), (19, 19), (0, 0)))
+    elif nifti_dataset == "MS_SEG-FLAIR":
+        vol = np.rot90(vol, 1)
+        vol = preprocessor.resize_vol(vol, 256)
+    elif nifti_dataset == "ADNI_GO2-T1-FLIRT-BET":
+        vol = np.moveaxis(vol, 0, 2)
+        vol = np.rot90(vol, axes=(0, 1))
+        vol = np.fliplr(vol)
+        vol = np.pad(vol, ((37, 37), (19, 19), (0, 0)))
     elif nifti_dataset == "ADNI-T2star":
         vol = np.rot90(vol, 1)
-    elif nifti_dataset == "AOMICID1000-DWI":
-        vol = np.rot90(vol, 1)
-    elif nifti_dataset == "SRPBS-T1":
-        vol = np.moveaxis(vol, 0, -1)
-        vol = np.rot90(vol, 1)
-        vol = np.fliplr(vol)
-        if vol.shape[0] != 256 or vol.shape[1] != 256:
-            vol = preprocessor.pad_vol(vol, target_size=(256, 256, vol.shape[-1]))
-    elif nifti_dataset in ["ADNI-T1", "SUDMEX-T1", "LAC-T1"]:
-        vol = np.moveaxis(vol, 0, -1)
-        vol = np.rot90(vol, 1)
-        vol = np.fliplr(vol)
-    elif nifti_dataset == "LAC-T1_resampled":
-        pass
-    else:
-        warnings.warn("Unrecognized nifti dataset, no preproc")
-        pass
 
     vol = vol.astype(np.float)  # Convert from np.memmap
 
@@ -131,6 +142,9 @@ def load_data(
         return_dicoms: bool = False,
         target_size: int = None,
 ):
+    if not isinstance(path_data, (Path, list)):
+        path_data = Path(path_data)
+
     if data_format == "nifti":  # Load NIFTI
         data = load_nifti(path_data, nifti_dataset=nifti_dataset)
     elif data_format == "dicom":  # Load DICOM
@@ -145,8 +159,8 @@ def load_data(
         raise ValueError("Unknown data format. Expected nifti, dicom or npy")
     data = data.squeeze()
 
-    if target_size is not None and data.shape[:2] != (target_size, target_size):  # Resize to target_size
-        data = preprocessor.resize(data, target_size)
+    if target_size is not None:  # Resize to target_size
+        data = preprocessor.resize_vol(data, target_size)
 
     if normalize:  # Normalize data
         data = preprocessor.normalize_volume(data)

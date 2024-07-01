@@ -5,6 +5,10 @@ import numpy as np
 
 
 def main(path_save_nii: Path, npy: np.ndarray = np.array([]), path_read_npy: Path = Path()):
+    """
+    Save `npy` as a NIFTI at `path_save_nii`, or load from `path_read_npy` and save it as a NIFTI at `path_save_nii`.
+
+    """
     if path_read_npy != Path() and npy == np.array([]):  # Load numpy
         npy = np.load(str(path_read_npy))
     elif path_read_npy == Path() and npy == np.array([]):

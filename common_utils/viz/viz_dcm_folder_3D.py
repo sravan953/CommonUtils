@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import sass
-from common_utils import data_loader
+from common_utils import data_loader, preprocessor
 
 
 def main(path_dcm_folder: str):
@@ -10,6 +10,9 @@ def main(path_dcm_folder: str):
         path_data=path_dcm_folder, data_format="dicom", normalize=True
     )
 
+    sass.scroll(npy)
+    npy = preprocessor.resize_vol(npy, size=256)
+    npy = preprocessor.crop_fov(npy, target_fov=240)
     sass.scroll(npy)
 
 

@@ -1,9 +1,9 @@
 from pathlib import Path
 
 import numpy as np
+import sass
 from matplotlib import pyplot as plt
 
-import sass
 
 
 def main(path_read_txt: Path, viz_3D=False):
